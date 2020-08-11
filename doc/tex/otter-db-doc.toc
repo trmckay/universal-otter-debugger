@@ -1,0 +1,18 @@
+\contentsline {section}{\numberline {1}Quickstart}{2}{section.1}%
+\contentsline {section}{\numberline {2}General overview of module and protocol}{2}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Overview}{2}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Connections}{2}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Protocol}{3}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Implementation on the Otter}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Some notes on clock speed, baud, connection quality}{5}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Multicycle Otter (CPE-233)}{5}{subsection.3.2}%
+\contentsline {subsubsection}{\numberline {3.2.1}Pausing}{5}{subsubsection.3.2.1}%
+\contentsline {subsubsection}{\numberline {3.2.2}Resuming}{6}{subsubsection.3.2.2}%
+\contentsline {subsubsection}{\numberline {3.2.3}Fulfilling reads and writes}{6}{subsubsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.3}Pipelined Otter (CPE-333)}{8}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Flushing, then pausing}{8}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}Resuming, reads, and writes}{8}{subsubsection.3.3.2}%
+\contentsline {subsubsection}{\numberline {3.3.3}Diagram}{9}{subsubsection.3.3.3}%
+\contentsline {section}{\numberline {4}Debug client}{10}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Installation}{10}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Usage}{10}{subsection.4.2}%

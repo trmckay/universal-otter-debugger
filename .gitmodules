@@ -1,0 +1,3 @@
+[submodule "riscv-uart-debugger"]
+	path = riscv-uart-debugger
+	url = git@github.com:trmckay/riscv-uart-debugger.git

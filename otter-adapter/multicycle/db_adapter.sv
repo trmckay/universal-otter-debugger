@@ -1,12 +1,12 @@
 ////////////////////////////////////////////////////////
-// Module: Multicycle Otter Debugger
+// Module: Multicycle Otter Adapter for UART Debugger
 // Author: Trevor McKay
-// Version: v0.2
+// Version: v1.0
 ///////////////////////////////////////////////////////
 
 `timescale 1ns / 1ps
 
-module debugger(
+module db_adapter_mc(
     // serial connection
     input               srx,
     output              stx,
@@ -20,7 +20,7 @@ module debugger(
     input logic  [6:0]  opcode,
 
     // to MCU
-    output wire         db_pc_pause,       // hold
+    output wire         db_active,         // hold
     output wire         db_fsm_pause,      // hold
     output reg   [31:0] db_mem_addr  = 0,  // hold
     output reg   [1:0]  db_mem_size  = 0,  // hold
@@ -76,11 +76,11 @@ module debugger(
 
     // separate registers for pausing so it can issue immediately
     reg
-        r_pc_pause  = 0,
+        r_db_active  = 0,
         r_fsm_pause = 0;
     assign
-        // pc must always pause immediately
-        db_pc_pause  = (r_pc_pause  || (pause && valid)),
+        // pc must always pause immediately (db_active should pause the PC)
+        db_active  = (r_db_active  || (pause && valid)),
         // fsm must pause immediately if a pause is issued in the fetch state
         db_fsm_pause = (r_fsm_pause || (pause && valid && (mcu_ps == S_MCU_FETCH)));
 
@@ -89,10 +89,6 @@ module debugger(
         r_rf_d_rd  = 0,
         r_mem_d_rd = 0;
         
-    // stall for mem reads
-    reg
-        r_stall = 0;
-
     // save read type to forward correct data to controller
     reg
         r_read_type = 0;
@@ -100,53 +96,16 @@ module debugger(
         RD_TYPE_MEM = 0,
         RD_TYPE_RF  = 1;
 
-    // forward the correct data
+    // forward the correct data based on last read type
     assign
         d_rd = (r_read_type) ? r_rf_d_rd : r_mem_d_rd;
 
     // determine if Otter is busy
+    // busy immediately on command issue
     reg [1:0]
         r_wait = 0; 
     assign
         mcu_busy = (r_wait > 0) || valid;
-
-//    initial begin
-//        pause = 0;
-//        resume = 0;
-//        reset = 0;
-//        mem_rd = 0;
-//        mem_wr = 0;
-//        reg_rd = 0;
-//        reg_wr = 0;
-//        valid = 0;
-//        addr = 'h110C0000;
-//        mem_size = 4;
-//        d_in = 0;
-        
-//        # 4020
-//        pause = 1; valid = 1;
-//        # 40
-//        pause = 0; valid = 0;
-        
-//        # 160
-        
-//        resume = 1; valid = 1;
-//        # 40
-//        resume = 0; valid = 0;
-        
-//        # 160
-       
-//        pause = 1; valid = 1;
-//        # 40
-//        pause = 0; valid = 0;
-        
-//        # 80;
-//        mem_rd = 1; valid = 1;
-//        # 40;
-//        valid = 0;
-//        # 40;
-//        mem_rd = 0;
-//    end
     
     debug_controller #(
         .CLK_RATE(50),
@@ -156,12 +115,13 @@ module debugger(
     always_ff @(posedge clk) begin
 
         case(r_ps)
-            
             S_IDLE: begin
                 if (valid) begin
                     if (pause) begin
+                        // always clear reset signal in idle, except when issued
+                        db_reset     <= 0;
                         // pc will remain paused always
-                        r_pc_pause <= 1;
+                        r_db_active <= 1;
                         case (mcu_ps)
                             // in fetch, pause can be issued before ir execs
                             S_MCU_FETCH: begin
@@ -189,15 +149,16 @@ module debugger(
                     end // if (reset)
 
                     else begin // !pause && !reset
-                        r_pc_pause   <= 0;
-                        r_fsm_pause  <= 0;
-                        db_mem_wr    <= 0;
-                        db_mem_rd    <= 0;
-                        db_rf_rd     <= 0;
-                        db_rf_wr     <= 0;
+                        // always clear reset signal in idle, except when issued
                         db_reset     <= 0;
-                        r_wait       <= 0;
-                        r_ps         <= S_IDLE;
+                        /* r_db_active  <= 0; */
+                        /* r_fsm_pause  <= 0; */
+                        /* db_mem_wr    <= 0; */
+                        /* db_mem_rd    <= 0; */
+                        /* db_rf_rd     <= 0; */
+                        /* db_rf_wr     <= 0; */
+                        /* r_wait       <= 0; */
+                        /* r_ps         <= S_IDLE; */
                     end // else
                 end // if (valid)
             end // S_IDLE
@@ -210,19 +171,35 @@ module debugger(
                 db_mem_rd    <= 0;
                 db_rf_rd     <= 0;
                 db_rf_wr     <= 0;
-                // one cycle has passed since read/write assertion, read in the data
-                r_rf_d_rd    <= rf_d_out;
-                r_mem_d_rd   <= mem_d_out;
-                // issuing complete
-                r_wait       <= (r_wait > 0) ? r_wait - 1 : 0;
-                r_ps         <= (r_wait > 0) ? S_ISSUE : S_PAUSED;
+                db_rf_wr     <= 0;
+                
+                if (r_wait > 1) begin
+                    // wait another cycle
+                    r_wait <= r_wait - 1;
+                    r_ps   <= S_ISSUE;
+                end
+                if (r_wait == 1) begin
+                    // at one cycle left, results can be saved
+                    // TODO: maybe wait times can be reduced by one
+                    r_rf_d_rd  <= rf_d_out;
+                    r_mem_d_rd <= mem_d_out;
+                    r_wait     <= r_wait - 1;
+                    r_ps       <= S_ISSUE;
+                end
+                if (r_wait == 0) begin
+                    // done waiting, return to S_PAUSED
+                    r_ps <= S_PAUSED;
+                end
             end
 
             S_PAUSED: begin
+                // memory and rf access should only be done while mcu is paused
+                // this is enforced here 
+                // this is also why "db_active" is tied to the PC being paused
                 if (valid) begin
                     if (resume) begin
                         // return to idle state and clear pause signals
-                        r_pc_pause  <= 0;
+                        r_db_active <= 0;
                         r_fsm_pause <= 0;
                         r_ps        <= S_IDLE;
                         r_wait      <= 0;
@@ -230,12 +207,15 @@ module debugger(
                     else if (reset) begin
                         db_reset    <= 1;
                         r_ps        <= S_IDLE;
-                        r_pc_pause  <= 0;
+                        r_db_active <= 0;
                         r_fsm_pause <= 0;
                         r_wait      <= 0;
                     end // if (reset)
                     else begin
                         // perform the read/write
+                        // note: controller behavior is such that
+                        //   only one will be issued at any
+                        //   give time
                         db_d_wr     <= d_in;
                         db_rf_addr  <= addr;
                         db_mem_addr <= addr;
@@ -244,8 +224,13 @@ module debugger(
                         db_mem_wr   <= mem_wr;
                         db_rf_rd    <= reg_rd;
                         db_rf_wr    <= reg_wr;
+                        // connect 'd_rd' port of controller based
+                        //   on the last performed read
+                        //   0 = memory, 1 = register file
                         r_read_type <= reg_rd; 
                         r_ps        <= S_ISSUE;
+                        // wait for operation to complete before returning
+                        //   to S_PAUSED
                         if (mem_rd || mem_wr)
                             r_wait  <= 2;
                         if (reg_rd || reg_wr)

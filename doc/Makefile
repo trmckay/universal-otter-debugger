@@ -1,6 +1,6 @@
 TOOL = pdflatex
 DIR = tex
-TEX = otter-db-doc.tex
+TEX = otter-db-multicycle.tex
 TARGET = pdf
 
 all:
@@ -8,7 +8,7 @@ all:
 	mkdir -p $(TARGET)
 	mv tex/*.pdf pdf
 clean:
-	(rm -f *.log; cd tex; rm -f *.aux *.out *.log)
+	(rm -f *.log; cd tex; rm -f *.aux *.out *.log *.toc)
 
 remove:
-	(rm -rf pdf *.log; cd tex; rm -f *.aux *.out *.log)
+	(rm -rf pdf *.log; cd tex; rm -f *.aux *.out *.log *.toc)

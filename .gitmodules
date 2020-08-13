@@ -1,3 +1,6 @@
-[submodule "uart-db"]
-	path = uart-db
-	url = git@github.com:trmckay/riscv-uart-debugger.git
+[submodule "client"]
+	path = client
+	url = git@github.com:trmckay/uart-debugger-client.git
+[submodule "uart-db-module"]
+	path = uart-db-module
+	url = git@github.com:trmckay/uart-debugger-module.git

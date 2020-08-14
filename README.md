@@ -7,7 +7,7 @@ The best way is to build and install from source:
 
 ```
 git clone --recursive git@github.com:trmckay/riscv-uart-debugger.git
-cd riscv-uart-debugger/client
+cd uart-db/client
 ./INSTALL
 ```
 

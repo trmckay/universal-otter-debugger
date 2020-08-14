@@ -46,17 +46,7 @@ The debugger currently only supports Linux and macOS, though it can be used in W
 \subsection{Adding the files}
 From the repository, include all the SystemVerilog files in \emph{uart-db/module/design} as well as
 \emph{otter-adapter/multicycle/db\_adapter.sv} in your Vivado project. Or, add them from wherever
-you downloaded them. You add a total of seven files:
-
-\begin{enumerate}
-    \item \emph{db\_adapter.sv}
-    \item \emph{debug\_ctrlr.sv}
-    \item \emph{serial\_db\_drvr.sv}
-    \item \emph{uart\_rx\_word.sv}
-    \item \emph{uart\_tx\_word.sv}
-    \item \emph{uart\_rx.sv}
-    \item \emph{uart\_tx.sv}
-\end{enumerate}
+you downloaded them. You will add a total of seven files.
 
 \subsection{Adding UART connections to the Otter}
 
@@ -179,11 +169,23 @@ with the output variables declared.
     );
 \end{verbatim}
 
+\newpage
 \subsection{Connections in the MCU}
-Finally, a few inputs to the modules in the MCU need to be modified. Only the modified connections
+Below is a diagram of the necessary connections in the Otter.
+
+\bigskip
+\begin{figure}[htpb]
+    \centering
+    \includegraphics[width=\linewidth]{blackbox.png}
+\end{figure}
+
+\newpage
+Alternatively, the modifications are described textually below. Only the modified connections
 are listed and variable names may vary.
 
-\subsubsection{Program counter}
+\medskip
+
+\textbf{Program counter}
 \begin{verbatim}
     program_counter PC(
         .load(pc_write && !db_active),
@@ -191,7 +193,7 @@ are listed and variable names may vary.
     );
 \end{verbatim}
 
-\subsubsection{Register file}
+\textbf{Register file}
 \begin{verbatim}
     program_counter PC(
         .read_addr1((db_rf_rd) ? db_rf_addr : ir[19:15]),
@@ -201,8 +203,7 @@ are listed and variable names may vary.
     );
 \end{verbatim}
 
-\newpage
-\subsubsection{Memory}
+\textbf{Memory}
 \begin{verbatim}
     OTTER_mem_byte #(14) memory (
         .MEM_ADDR2((db_active) ? db_mem_addr : alu_result),
@@ -214,7 +215,7 @@ are listed and variable names may vary.
     );
 \end{verbatim}
 
-\subsubsection{FSM}
+\textbf{FSM}
 \begin{verbatim}
     otter_fsm FSM(
         .reset(mcu_reset || db_reset),

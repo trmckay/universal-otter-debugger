@@ -6,7 +6,7 @@ Implementation of the RISC-V UART Debugger for Cal Poly's Otter MCU
 The best way is to build and install from source:
 
 ```
-git clone git@github.com:trmckay/riscv-uart-debugger.git
+git clone --recursive git@github.com:trmckay/riscv-uart-debugger.git
 cd riscv-uart-debugger/client
 ./INSTALL
 ```

@@ -1,6 +1,0 @@
-[submodule "client"]
-	path = client
-	url = git@github.com:trmckay/uart-debugger-client.git
-[submodule "uart-db-module"]
-	path = uart-db-module
-	url = git@github.com:trmckay/uart-debugger-module.git

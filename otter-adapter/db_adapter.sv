@@ -6,16 +6,37 @@
 
 `timescale 1ns / 1ps
 
-// uncomment to select target architecture
-`define MULTICYCLE
-// `define PIPELINE
+//// --->                !!! IMPORTANT !!!                    <---  ////
+//// --->   !!! uncomment to select target architecture !!!   <---  ////
 
-// uncomment if using variable latency memory
-// `define VLM
+// `define MULTICYCLE   // for multicycle Otter (CPE-233)
+// `define PIPELINE     // for pipelined Otter (CPE-333)
+// `define VLM          // for variable latency / AXI memory (CPE-333)
+// `define TESTBENCH    // for using in simulation without physical connection
 
-module db_adapter_mc #(
+module otter_debug_adapter #(
     CLK_RATE = 50 // clk rate in MHz
     )(
+    
+    `ifdef MULTICYCLE
+        input    [1:0]  mcu_ps,
+        input    [6:0]  opcode,
+        // FSM pausing is separate from PC in multicycle architecture
+        output wire    db_fsm_pause,       // hold
+    `endif
+    
+    `ifdef PIPELINE
+        // ir exiting the pipeline is valid
+        input           wb_ir_flagged,
+        // flag instruction in fetch to know when pipeline is flushed
+        output wire     db_flag_fetch_ir,
+    `endif
+    
+    `ifdef VLM
+        // support for VLM
+        input           mem_stall,
+    `endif
+    
     // serial connection
     input               srx,
     output              stx,
@@ -25,21 +46,6 @@ module db_adapter_mc #(
     input        [31:0] pc,
     input        [31:0] rf_d_out,
     input        [31:0] mem_d_out,
-
-    `ifdef MULTICYCLE
-        input    [1:0]  mcu_ps,
-        input    [6:0]  opcode,
-    `endif
-
-    `ifdef PIPELINE
-        // ir exiting the pipeline is valid
-        input           wb_ir_flagged,
-    `endif
-
-    `ifdef VLM
-        // support for VLM
-        input           mem_stall,
-    `endif
 
     // to MCU
     output wire         db_active,          // hold
@@ -52,17 +58,28 @@ module db_adapter_mc #(
     output reg          db_rf_rd      = 0,  // one-shot
     output reg   [31:0] db_d_wr       = 0,  // one-shot
     output reg          db_reset      = 0   // one-shot
-
-    `ifdef PIPELINE
-        // flag instruction in fetch to know when pipeline is flushed
-        ,output wire    flag_fetch_ir = 0
-    `endif
-
-    `ifdef MULTICYCLE
-        // FSM pausing is separate from PC in multicycle architecture
-        ,output wire    db_fsm_pause       // hold
-    `endif
 );
+
+    // check for compatible combinations of options
+    initial begin
+        `ifndef MULTICYCLE
+            `ifndef PIPELINE
+                $error("Otter debugger: no target architecture is defined");
+            `endif
+        `endif
+        
+        `ifdef PIPELINE
+            `ifndef VLM
+                $warning("Otter debugger: not using VLM with pipelined architecture");
+            `endif
+        `endif
+        
+        `ifdef MULTICYCLE
+            `ifdef VLM
+                $warning("Otter debugger: using VLM with multicycle architecture");
+            `endif
+        `endif
+    end
 
     `ifdef MULTICYCLE
         // mcu states
@@ -124,7 +141,7 @@ module db_adapter_mc #(
     `endif
 
     `ifdef PIPELINE
-        assign flag_fetch_ir = (pause && valid);
+        assign db_flag_fetch_ir = (pause && valid);
     `endif
 
     // hold on to outputs of mem/rf
@@ -144,42 +161,62 @@ module db_adapter_mc #(
     // determine if Otter is busy
     // busy immediately on command issue
     reg [1:0] r_wait = 0;
+    
     `ifdef PIPELINE
         reg r_pause_pending = 0;
-        `ifdef VLM
-            assign mcu_busy = (r_wait > 0) || valid || r_pause_pending || mem_stall;
-        `else
-            assign mcu_busy = (r_wait > 0) || valid || r_pause_pending;
-        `endif
-    `elsif MULTICYCLE
-        `ifdef VLM
-            assign mcu_busy = (r_wait > 0) || valid || mem_stall;
-        `else
-            assign mcu_busy = (r_wait > 0) || valid;
-        `endif
+        assign mcu_busy = (r_wait > 0) || valid || r_pause_pending;;
+    `endif
+    
+    `ifdef MULTICYCLE
+        assign mcu_busy = (r_wait > 0) || valid;
     `endif
 
-    debug_controller #(
-        .CLK_RATE(CLK_RATE),
-        .BAUD(115200)
-    ) ctrlr(.*);
+    `ifdef TESTBENCH
+    
+        localparam CLK_T_NS = 2000 / CLK_RATE;
+        
+        `define ctrlr_issue(SIG) \
+            SIG = 1; valid = 1; \
+            # CLK_T_NS \
+            SIG = 0; valid = 0;
+    
+        initial begin
+            pause = 0; resume = 0; reset = 0; mem_rd = 0;
+            mem_wr = 0; reg_rd = 0; reg_wr = 0; valid = 0;
+            addr = 'h4; mem_size = 'd2; d_in = 'hFFFF;
+            
+            // put testcases here
+            // some examples are shown below
+            
+            # 4030
+            `ctrlr_issue(pause);
+            # 1020
+            `ctrlr_issue(mem_rd);  
+            # 1020
+            addr = 'h1;
+            `ctrlr_issue(reg_rd);
+            # 1020
+            `ctrlr_issue(resume);
+        end
+        
+    `else
+        debug_controller #(
+            .CLK_RATE(CLK_RATE),
+            .BAUD(115200)
+        ) ctrlr(.*);
+    `endif
 
     always_ff @(posedge clk) begin
-
-        `ifdef PIPELINE
-            if (r_pc_disable_cycles > 0)
-                r_pc_disable_cycles <= r_pc_disable_cycles - 1;
-        `endif
 
         case(r_ps)
 
             S_IDLE: begin
                 // always clear reset signal in idle
-                db_reset     <= 0;
+                db_reset <= 0;
 
                 if (valid && pause) begin
                     // pc will remain paused while debugger is accepting commands
-                    r_db_active  <= 1;
+                    r_db_active <= 1;
 
                     // multicycle arch needs to wait depending on present state
                     `ifdef MULTICYCLE
@@ -212,40 +249,25 @@ module db_adapter_mc #(
 
             S_WAIT_CYCLES: begin
 
-                // for multicycle architecture,
-                // behavior is predictable
-                //
-                // register reads are asynchronous,
-                // register writes take one cycle,
-                // memory reads and writes all take one cycle,
-
                 // these signals are all one-shot, clear them
-                db_mem_wr    <= 0;
-                db_mem_rd    <= 0;
+                `ifndef VLM
+                    db_mem_wr    <= 0;
+                    db_mem_rd    <= 0;
+                `endif
                 db_rf_rd     <= 0;
                 db_rf_wr     <= 0;
 
-                // wait another cycle
-                if (r_wait > 1)
+                if (r_wait > 0) begin
                     r_wait <= r_wait - 1;
-
-                // at one cycle left, results can be saved
-                if (r_wait == 1) begin
-                    r_rf_d_rd  <= rf_d_out;
-                    r_wait     <= r_wait - 1;
                 end
 
-                `ifdef MULTICYCLE
-                    // mem reads in multicycle have predictable delays
-                    if (r_wait == 1) begin
+                if (r_wait == 0) begin
+                    r_rf_d_rd <= rf_d_out;
+                    `ifndef VLM
                         r_mem_d_rd <= mem_d_out;
-                        r_wait     <= r_wait - 1;
-                    end
-                `endif
-
-                // done waiting, return to S_PAUSED
-                if (r_wait == 0)
+                    `endif
                     r_ps <= S_PAUSED;
+                end                
             end
 
             `ifdef PIPELINE
@@ -255,6 +277,7 @@ module db_adapter_mc #(
                     `else
                     if (wb_ir_flagged) begin
                     `endif
+                        r_pause_pending <= 0;
                         r_ps <= S_PAUSED;
                     end
                 end
@@ -309,18 +332,24 @@ module db_adapter_mc #(
                         // still us S_WAIT_CYCLES for these,
                         // use S_WAIT_MEM for variable latency memory
                         `ifdef VLM
-                            if (mem_rd || mem_wr)
-                                r_ps <= S_ACCESS_VLM;
-                            if (reg_rd || reg_wr) begin
-                                r_ps <= S_WAIT_CYCLES
+                            if (mem_rd || mem_wr) begin
+                                r_wait <= 2;
+                                r_ps   <= S_ACCESS_VLM;
+                            end
+                            if (reg_wr) begin
                                 r_wait <= 1;
+                                r_ps   <= S_WAIT_CYCLES;
+                            end
+                            if (reg_rd) begin
+                                r_wait <= 1;
+                                r_ps   <= S_WAIT_CYCLES;
                             end
                         `else
                             r_ps <= S_WAIT_CYCLES;
-                            if (mem_rd || mem_wr)
-                                r_wait  <= 2;
-                            if (reg_rd || reg_wr)
+                            if (mem_rd || mem_wr || reg_wr)
                                 r_wait  <= 1;
+                            if (reg_rd)
+                                r_wait  <= 0;
                         `endif
 
                     end // !resume && !reset
@@ -332,13 +361,17 @@ module db_adapter_mc #(
                     if (!mem_stall) begin
                         db_mem_rd  <= 0;
                         db_mem_wr  <= 0;
-                        r_mem_d_rd <= mem_d_out;
-                        r_ps <= S_PAUSED;
+                        if (r_wait > 0)
+                            r_wait <= r_wait - 1;
                     end
+                    if (r_wait == 1)
+                        r_mem_d_rd <= mem_d_out;
+                    if (r_wait == 0)
+                        r_ps <= S_PAUSED;
                 end
             `endif
 
-            default: r_ps <= IDLE;
+            default: r_ps <= S_IDLE;
 
         endcase // r_ps
     end //always_ff

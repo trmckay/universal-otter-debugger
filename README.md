@@ -6,7 +6,7 @@ This is an extension of another project of mine, a [debugger for RISC-V RV32I ov
 ### Implementing module ###
 Implementing the module for your Otter is very simple, as it uses standard Otter signals. In general, internal MCU signals should be used when ```db_active``` is low and debugger signals when it is high.
 
-![pipeline_diagram](https://raw.githubusercontent.com/trmckay/universal-otter-debugger/master/doc/tex/figures/pipeline.png)
+Diagram for integration in multicycle architecture:
 ![mc_diagram](https://raw.githubusercontent.com/trmckay/universal-otter-debugger/master/doc/tex/figures/blackbox.png)
 
 More detailed instructions are included in the releases in pdf format.

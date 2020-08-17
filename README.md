@@ -24,7 +24,7 @@ You will need gcc, GNU make, glib, and readline.
 
 Ubuntu:
 ```
-sudo apt install gcc make readline-dev libglib2.0-dev
+sudo apt install gcc make libreadline-dev libglib2.0-dev
 ```
 
 Arch:

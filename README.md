@@ -8,7 +8,7 @@ Make sure to do a recursive clone, the client and most of the SystemVerilog code
 ```
 git clone --recursive git@github.com:trmckay/universal-otter-debugger.git
 ```
-To compile all the SystemVerilog code into one file, ```otter_debugger.sv```:
+To compile all the SystemVerilog code into one file, ```otter_debugger_(version).sv```:
 ```
 make module
 ```

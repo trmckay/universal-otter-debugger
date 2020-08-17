@@ -1,5 +1,5 @@
 NAME = otter-debugger
-VERSION = v1.3
+VERSION = v1.4
 BUILD = $(NAME)-$(VERSION)
 SHELL:=/bin/bash
 

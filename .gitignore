@@ -16,3 +16,4 @@
 riscv-uart-debugger/client/build
 riscv-uart-debugger/uart-db-build
 *.tar.gz
+otter_debugger_v*.sv

@@ -156,16 +156,24 @@ module otter_debug_adapter #(
     // hold on to outputs of mem/rf
     reg [31:0]
         r_rf_d_rd  = 0,
-        r_mem_d_rd = 0;
+        r_mem_d_rd = 0,
+        r_pc = 0;
 
     // save read type to forward correct data to controller
-    reg r_read_type = 0;
+    reg [1:0] r_read_type = 0;
     localparam
         RD_TYPE_MEM = 0,
-        RD_TYPE_RF  = 1;
+        RD_TYPE_RF  = 1,
+        RD_TYPE_PC  = 2;
 
     // forward the correct data based on last read type
-    assign d_rd = (r_read_type) ? r_rf_d_rd : r_mem_d_rd;
+    always_comb begin
+        case (r_read_type)
+            RD_TYPE_MEM: d_rd = r_mem_d_rd;
+            RD_TYPE_RF: d_rd = r_rf_d_rd;
+            RD_TYPE_PC: d_rd = r_pc;
+        endcase
+    end
 
     // determine if Otter is busy
     // busy immediately on command issue
@@ -226,6 +234,8 @@ module otter_debug_adapter #(
                 if (valid && pause) begin
                     // pc will remain paused while debugger is accepting commands
                     r_db_active <= 1;
+                    r_pc <= pc;
+                    r_read_type <= RD_TYPE_PC;
 
                     // multicycle arch needs to wait depending on present state
                     `ifdef MULTICYCLE
@@ -335,7 +345,10 @@ module otter_debug_adapter #(
                             // connect 'd_rd' port of controller based
                             //   on the last performed read
                             //   0 = memory, 1 = register file
-                            r_read_type <= reg_rd;
+                            if (mem_rd)
+                                r_read_type <= RD_TYPE_MEM;
+                            if (reg_rd)
+                                r_read_type <= RD_TYPE_RF;
     
                             // for VLM,
                             // only register operations are predictable,

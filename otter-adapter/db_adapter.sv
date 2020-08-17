@@ -9,7 +9,7 @@
 //// --->                !!! IMPORTANT !!!                    <---  ////
 //// --->   !!! uncomment to select target architecture !!!   <---  ////
 
-// `define MULTICYCLE   // for multicycle Otter (CPE-233)
+`define MULTICYCLE   // for multicycle Otter (CPE-233)
 // `define PIPELINE     // for pipelined Otter (CPE-333)
 // `define VLM          // for variable latency / AXI memory (CPE-333)
 // `define TESTBENCH    // for using in simulation without physical connection
@@ -97,6 +97,10 @@ module otter_debug_adapter #(
         localparam STAGES = 5;
     `endif
 
+    // mmio not yet supported
+    localparam MAX_MEM_ADDR = 32'h11000000-1;
+    localparam MAX_RF_ADDR = 31;
+    
     // db wrapper states
     localparam
         S_IDLE        = 0,
@@ -126,8 +130,13 @@ module otter_debug_adapter #(
     // inputs to debug controller
     logic
         mcu_busy,
-        error = 0;
+        error;
     logic [31:0] d_rd;
+    
+    assign error = (
+        (addr > MAX_RF_ADDR && reg_rd && valid) ||
+        (addr > MAX_MEM_ADDR && mem_rd && valid)
+    );
 
     // separate registers for pausing so it can issue immediately
     reg r_db_active  = 0;
@@ -164,11 +173,11 @@ module otter_debug_adapter #(
     
     `ifdef PIPELINE
         reg r_pause_pending = 0;
-        assign mcu_busy = (r_wait > 0) || valid || r_pause_pending;;
+        assign mcu_busy = ((r_wait > 0) || valid || r_pause_pending) && !error;
     `endif
     
     `ifdef MULTICYCLE
-        assign mcu_busy = (r_wait > 0) || valid;
+        assign mcu_busy = ((r_wait > 0) || valid) && !error;
     `endif
 
     `ifdef TESTBENCH
@@ -313,45 +322,46 @@ module otter_debug_adapter #(
                         // perform the read/write
                         // note: controller behavior is such that
                         //   only one will be issued at any time
-                        db_d_wr     <= d_in;
-                        db_rf_addr  <= addr;
-                        db_mem_addr <= addr;
-                        db_mem_size <= mem_size;
-                        db_mem_rd   <= mem_rd;
-                        db_mem_wr   <= mem_wr;
-                        db_rf_rd    <= reg_rd;
-                        db_rf_wr    <= reg_wr;
-
-                        // connect 'd_rd' port of controller based
-                        //   on the last performed read
-                        //   0 = memory, 1 = register file
-                        r_read_type <= reg_rd;
-
-                        // for VLM,
-                        // only register operations are predictable,
-                        // still us S_WAIT_CYCLES for these,
-                        // use S_WAIT_MEM for variable latency memory
-                        `ifdef VLM
-                            if (mem_rd || mem_wr) begin
-                                r_wait <= 2;
-                                r_ps   <= S_ACCESS_VLM;
-                            end
-                            if (reg_wr) begin
-                                r_wait <= 1;
-                                r_ps   <= S_WAIT_CYCLES;
-                            end
-                            if (reg_rd) begin
-                                r_wait <= 1;
-                                r_ps   <= S_WAIT_CYCLES;
-                            end
-                        `else
-                            r_ps <= S_WAIT_CYCLES;
-                            if (mem_rd || mem_wr || reg_wr)
-                                r_wait  <= 1;
-                            if (reg_rd)
-                                r_wait  <= 0;
-                        `endif
-
+                        if (!error) begin
+                            db_d_wr     <= d_in;
+                            db_rf_addr  <= addr;
+                            db_mem_addr <= addr;
+                            db_mem_size <= mem_size;
+                            db_mem_rd   <= mem_rd;
+                            db_mem_wr   <= mem_wr;
+                            db_rf_rd    <= reg_rd;
+                            db_rf_wr    <= reg_wr;
+    
+                            // connect 'd_rd' port of controller based
+                            //   on the last performed read
+                            //   0 = memory, 1 = register file
+                            r_read_type <= reg_rd;
+    
+                            // for VLM,
+                            // only register operations are predictable,
+                            // still us S_WAIT_CYCLES for these,
+                            // use S_WAIT_MEM for variable latency memory
+                            `ifdef VLM
+                                if (mem_rd || mem_wr) begin
+                                    r_wait <= 2;
+                                    r_ps   <= S_ACCESS_VLM;
+                                end
+                                if (reg_wr) begin
+                                    r_wait <= 1;
+                                    r_ps   <= S_WAIT_CYCLES;
+                                end
+                                if (reg_rd) begin
+                                    r_wait <= 1;
+                                    r_ps   <= S_WAIT_CYCLES;
+                                end
+                            `else
+                                r_ps <= S_WAIT_CYCLES;
+                                if (mem_rd || mem_wr || reg_wr)
+                                    r_wait  <= 1;
+                                if (reg_rd)
+                                    r_wait  <= 0;
+                            `endif
+                        end
                     end // !resume && !reset
                 end // if (valid)
             end // S_PAUSED

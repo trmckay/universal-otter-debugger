@@ -3,7 +3,37 @@
 ### About ###
 This is an extension of another project of mine, a [debugger for RISC-V RV32I over USB UART](https://github.com/trmckay/riscv-uart-debugger/tree/dev). It is a module that translates generic debugger requests into specific signals for various architecures of Cal Poly's RISC-V implementation.
 
-### Implementing module ###
+### Getting the files ###
+Make sure to do a recursive clone, the client and most of the SystemVerilog code are in the submodules.
+```
+git clone --recursive git@github.com:trmckay/universal-otter-debugger.git
+```
+To compile all the SystemVerilog code into one file, ```otter_debugger.sv```:
+```
+make module
+```
+
+### Installing the client from source ###
+
+You will need ```glib``` and ```readline```.
+
+Ubuntu:
+```
+sudo apt install readline-dev libglib2.0-dev
+```
+
+Arch:
+```
+sudo pacman -S lib32-readline glib2
+```
+
+Next, run the installer script:
+```
+cd uart-db/client
+./INSTALL
+```
+
+### Implementing the module ###
 Implementing the module for your Otter is very simple, as it uses standard Otter signals. In general, internal MCU signals should be used when ```db_active``` is low and debugger signals when it is high.
 
 Diagram for integration in multicycle architecture:
@@ -11,15 +41,6 @@ Diagram for integration in multicycle architecture:
 
 More detailed instructions are included in the releases in pdf format.
 
-### Installing the client ###
-
-The best way is to build and install from source:
-
-```
-git clone --recursive git@github.com:trmckay/riscv-uart-debugger.git
-cd uart-db/client
-./INSTALL
-```
 
 ### Usage ###
 Launch the tool with:

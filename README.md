@@ -3,6 +3,32 @@
 ## About ##
 This is an extension of another project of mine, a [debugger for RISC-V RV32I over USB UART](https://github.com/trmckay/riscv-uart-debugger/tree/dev). It is a module that translates generic debugger requests into specific signals for various architecures of Cal Poly's RISC-V implementation.
 
+## Features ##
+- Read/write registers
+- Read/write memory
+- Program the Otter without resynthesizing
+- Breakpoints
+- Pause/resume execution
+- Configurable variables for commonly used values
+- Communicates over the same microUSB used to program the board
+
+```
+ h                   : view this message
+ p                   : pause execution
+ r                   : resume execution
+ pr <mem.bin>        : program with the specified binary file
+ rst                 : reset execution
+ st                  : request MCU status
+ b <pc>              : add a breakpoint to the specified program counter
+ d <num>             : delete the specified breakpoint
+ bl                  : list breakpoints
+ rr <num>            : read the data at the register
+ rw <num> <data>     : write the data to the register
+ mww <addr> <data>   : write a word (4 bytes) to the memory
+ mrb <addr>          : read a byte from the memory
+ mwb <addr> >data>   : write a byte to the memory
+ ```
+
 ## Getting the files ##
 Make sure to do a recursive clone, the client and most of the SystemVerilog code are in the submodules.
 

@@ -5,9 +5,11 @@ This is an extension of another project of mine, a [debugger for RISC-V RV32I ov
 
 ## Getting the files ##
 Make sure to do a recursive clone, the client and most of the SystemVerilog code are in the submodules.
+
 ```
-git clone --recursive git@github.com:trmckay/universal-otter-debugger.git
+git clone --recursive https://github.com/trmckay/universal-otter-debugger.git
 ```
+
 To compile all the SystemVerilog code into one file, ```otter_debugger_(version).sv```:
 ```
 make module
@@ -22,26 +24,25 @@ Download the latest release, and keep the binary somewhere you can find it.
 
 You will need gcc, GNU make, glib, and readline.
 
-Ubuntu:
+For example, in Ubuntu:
+
 ```
 sudo apt install gcc make libreadline-dev libglib2.0-dev
 ```
 
-Arch:
-```
-sudo pacman -S gcc make lib32-readline glib2
-```
-
-Next, run the installer script:
+Next, install the client:
 ```
 cd uart-db/client
-./INSTALL
+make
+sudo make install
 ```
+
+Alternatively, there is a binary included in the releases.
 
 ## Implementing the module ##
 Implementing the module for your Otter is very simple, as it uses standard Otter signals. In general, internal MCU signals should be used when ```db_active``` is low and debugger signals when it is high.
 
-More detailed instructions are included in the releases in pdf format.
+More detailed instructions are included the [documentation](doc/multicycle_instructions.pdf).
 
 ### Multicycle Otter ###
 

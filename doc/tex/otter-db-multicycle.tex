@@ -91,9 +91,9 @@ on the Basys3. Paste the following into your constraints:
 
 \begin{verbatim}
     ##USB-RS232 Interface
-    set_property PACKAGE_PIN B18 [get_ports srx]						
+    set_property PACKAGE_PIN B18 [get_ports srx]
         set_property IOSTANDARD LVCMOS33 [get_ports srx]
-    set_property PACKAGE_PIN A18 [get_ports stx]						
+    set_property PACKAGE_PIN A18 [get_ports stx]
         set_property IOSTANDARD LVCMOS33 [get_ports stx]
 \end{verbatim}
 
@@ -149,7 +149,7 @@ with the output variables declared.
     db_adapter_mc debugger(
         .srx(srx),                    // serial input
         .stx(stx),                    // serial output
-        .clk(),                       // 50 MHz clock 
+        .clk(),                       // 50 MHz clock
         .pc(),                        // program count
         .mcu_ps(),                    // present state of FSMi
         .opcode(),                    // opcode of current instruction

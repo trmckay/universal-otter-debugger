@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////
-// Module: Multicycle Otter Adapter for UART Debugger
+// Module: Debugging Unit for the Otter
 // Author: Trevor McKay
 // Version: v1.0
 ///////////////////////////////////////////////////////
@@ -17,26 +17,26 @@
 module otter_debug_adapter #(
     CLK_RATE = 50 // clk rate in MHz
     )(
-    
+
     `ifdef MULTICYCLE
         input    [1:0]  mcu_ps,
         input    [6:0]  opcode,
         // FSM pausing is separate from PC in multicycle architecture
         output wire    db_fsm_pause,       // hold
     `endif
-    
+
     `ifdef PIPELINE
         // ir exiting the pipeline is valid
         input           wb_ir_flagged,
         // flag instruction in fetch to know when pipeline is flushed
         output wire     db_flag_fetch_ir,
     `endif
-    
+
     `ifdef VLM
         // support for VLM
         input           mem_stall,
     `endif
-    
+
     // serial connection
     input               srx,
     output              stx,
@@ -67,13 +67,13 @@ module otter_debug_adapter #(
                 $error("Otter debugger: no target architecture is defined");
             `endif
         `endif
-        
+
         `ifdef PIPELINE
             `ifndef VLM
                 $warning("Otter debugger: not using VLM with pipelined architecture");
             `endif
         `endif
-        
+
         `ifdef MULTICYCLE
             `ifdef VLM
                 $warning("Otter debugger: using VLM with multicycle architecture");
@@ -100,7 +100,7 @@ module otter_debug_adapter #(
     // mmio not yet supported
     localparam MAX_MEM_ADDR = 32'h11000000-1;
     localparam MAX_RF_ADDR = 31;
-    
+
     // db wrapper states
     localparam
         S_IDLE        = 0,
@@ -132,7 +132,7 @@ module otter_debug_adapter #(
         mcu_busy,
         error;
     logic [31:0] d_rd;
-    
+
     assign error = (
         (addr > MAX_RF_ADDR && reg_rd && valid) ||
         (addr > MAX_MEM_ADDR && mem_rd && valid)
@@ -178,44 +178,44 @@ module otter_debug_adapter #(
     // determine if Otter is busy
     // busy immediately on command issue
     reg [1:0] r_wait = 0;
-    
+
     `ifdef PIPELINE
         reg r_pause_pending = 0;
         assign mcu_busy = ((r_wait > 0) || valid || r_pause_pending) && !error;
     `endif
-    
+
     `ifdef MULTICYCLE
         assign mcu_busy = ((r_wait > 0) || valid) && !error;
     `endif
 
     `ifdef TESTBENCH
-    
+
         localparam CLK_T_NS = 2000 / CLK_RATE;
-        
+
         `define ctrlr_issue(SIG) \
             SIG = 1; valid = 1; \
             # CLK_T_NS \
             SIG = 0; valid = 0;
-    
+
         initial begin
             pause = 0; resume = 0; reset = 0; mem_rd = 0;
             mem_wr = 0; reg_rd = 0; reg_wr = 0; valid = 0;
             addr = 'h4; mem_size = 'd2; d_in = 'hFFFF;
-            
+
             // put testcases here
             // some examples are shown below
-            
+
             # 4030
             `ctrlr_issue(pause);
             # 1020
-            `ctrlr_issue(mem_rd);  
+            `ctrlr_issue(mem_rd);
             # 1020
             addr = 'h1;
             `ctrlr_issue(reg_rd);
             # 1020
             `ctrlr_issue(resume);
         end
-        
+
     `else
         debug_controller #(
             .CLK_RATE(CLK_RATE),
@@ -286,7 +286,7 @@ module otter_debug_adapter #(
                         r_mem_d_rd <= mem_d_out;
                     `endif
                     r_ps <= S_PAUSED;
-                end                
+                end
             end
 
             `ifdef PIPELINE
@@ -341,7 +341,7 @@ module otter_debug_adapter #(
                             db_mem_wr   <= mem_wr;
                             db_rf_rd    <= reg_rd;
                             db_rf_wr    <= reg_wr;
-    
+
                             // connect 'd_rd' port of controller based
                             //   on the last performed read
                             //   0 = memory, 1 = register file
@@ -349,7 +349,7 @@ module otter_debug_adapter #(
                                 r_read_type <= RD_TYPE_MEM;
                             if (reg_rd)
                                 r_read_type <= RD_TYPE_RF;
-    
+
                             // for VLM,
                             // only register operations are predictable,
                             // still us S_WAIT_CYCLES for these,

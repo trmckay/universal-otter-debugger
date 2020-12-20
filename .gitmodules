@@ -1,3 +1,0 @@
-[submodule "uart-db"]
-	path = uart-db
-	url = git@github.com:trmckay/riscv-uart-debugger.git
